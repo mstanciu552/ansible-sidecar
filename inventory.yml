@@ -1,0 +1,8 @@
+all:
+  hosts:
+    windows:
+      ansible_host: 192.168.79.128
+      ansible_user: "Mihai Stanciu"
+      ansible_password: mihai2002
+      ansible_connection: winrm
+      ansible_winrm_transport: basic
