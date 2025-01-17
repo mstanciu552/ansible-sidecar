@@ -1,0 +1,56 @@
+---
+
+- name: Install sidecar on Windows
+  vars:
+    graylog_sidecar_executable: "https://github.com/Graylog2/collector-sidecar/releases/download/1.5.0/graylog_sidecar_installer_1.5.0-1.exe"
+  tasks:
+    - name: Download executable from github
+      win_get_url:
+        url: "{{ graylog_sidecar_executable }}"
+        dest: "C:\\temp\\graylog_sidecar.exe"
+
+    - name: Run the executable
+      win_package:
+        path: "C:\\temp\\graylog_sidecar.exe"
+        arguments: /quiet
+        state: present
+
+    - name: Ensure sidecar configuration file exists
+      win_file:
+        path: "C:\\Program Files\\Graylog\\sidecar\\"
+        state: directory
+
+    - name: Get Sidecar configuration from the graylog server
+      win_get_url:
+        url: "http://{{ graylog_ip_addr }}/api/plugins/org.graylog.plugins.sidecar/sidecar.yml"
+        dest: "C:\\temp\\sidecar.yml"
+
+    - name: Copy Sidecar configuration file
+      win_copy:
+        src: "C:\\temp\\sidecar.yml"
+        dest: "C:\\Program Files\\Graylog\\sidecar\\sidecar.yml"
+
+    - name: Configure Graylog Sidecar settings
+      win_lineinfile:
+        path: "C:\\Program Files\\Graylog\\sidecar\\sidecar.yml"
+        regexp: "^(server_url|server_api_token):.*"
+        line: "\\1: {{ item.value }}"
+      with_items:
+        - { key: 'server_url', value: 'http://{{ graylog_ip_addr }}:9000/api' }
+        - { key: 'server_api_token', value: '{{ graylog_api_token }}' }
+
+    - name: Start Graylog Sidecar service
+      win_service:
+        name: graylog-sidecar
+        start_mode: auto
+        state: started
+
+    - name: Ensure Sidecar service is operational
+      win_service_info:
+        name: graylog-sidecar
+      register: sidecar_status
+
+    - name: Fail if the Sidecar service is not running
+      fail:
+        msg: "Graylog Sidecar service failed to start."
+      when: sidecar_status.status != "running"
